@@ -1,1 +1,12 @@
+FWI considers fuel available to a fire, ground moisture levels
+IOD considers conditions of Indian Ocean temperature which affects rainfall, humidity and temperature
+SOI considers chances of EL Nino / La Nina event which affects rainfall, huidity and temperature
+These datasets form multiple time series, split by latlong/region.
 
+Additional data features:
+Mean temp, max temp, min temp, humidity 9am, humidity 3pm, pan evaporation
+Uses data from 1986-2005
+
+Future FFDI to account for climate change (only by state)
+
+https://www.climatechangeinaustralia.gov.au/en/obtain-data/download-datasets/
