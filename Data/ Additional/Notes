@@ -5,7 +5,7 @@ These datasets form multiple time series, split by latlong/region.
 
 Additional data features:
 Mean temp, max temp, min temp, humidity 9am, humidity 3pm, pan evaporation
-Uses data from 1986-2005
+Gets an average from data spanning 1986-2005, split by month.
 
 Future FFDI to account for climate change (only by state)
 
