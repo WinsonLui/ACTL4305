@@ -1,19 +1,11 @@
 ## Set working directory
-#setwd("C:/Users/Callista Surjadi/Downloads")
+setwd("C:/Users/Callista Surjadi/Downloads")
 
 ## Initialise libraries
 pacman::p_load("readxl","dplyr", "randomForest", "gridExtra", "tidyr", "lubridate", "ggplot2", "hrbrthemes", "ggmap", "broom", "geojsonio", "maptools", "sf", "glmnet", "parallel", "doParallel", "PRROC", "caret")
 
 ## Import dataset
 data <- read.csv("df.csv")
-
-############################CAN DELETE AFTER IMPORTING UPDATED DATASET #########
-## Data cleaning 
-data <- data %>%
-  select(-c(8,10,16:24))
-
-colnames(data) <- c("Date", "State", "FWI_mean", "FWI_median", "FWI_max", "FWI_99th", "FWI_99th_flag", "IOD", "SOI", "Artificial_surfaces", "Cultivated_terrestrial_vegetated", "Natural_terrestrial_vegetated", "Water", "Bushfire_Flag")
-#################################################################################
 
 ## Process data
 data <- data %>%
@@ -26,8 +18,6 @@ data <- data %>%
   mutate(FWI_99th_flag = case_when(FWI_max < FWI_99th ~ "No",
                                    FWI_max >= FWI_99th ~ "Yes")) %>%
   select(-c("FWI_median", "FWI_max", "FWI_99th", "IOD", "SOI"))
-data$SOI_Condition <- as.factor(data$SOI_Condition)
-data$IOD_Phase <- as.factor(data$IOD_Phase)
 
 data$Bushfire_Flag <- ifelse(data$Bushfire_Flag == T, "Yes", "No")
 
@@ -38,6 +28,8 @@ data$Date <- ymd(data$Date)
 data$State <- as.factor(data$State)
 data$FWI_99th_flag <- as.factor(data$FWI_99th_flag)
 data$Bushfire_Flag <- as.factor(data$Bushfire_Flag)
+data$SOI_Condition <- as.factor(data$SOI_Condition)
+data$IOD_Phase <- as.factor(data$IOD_Phase)
 
 ## Split data to training and testing set
 set.seed(6)
@@ -140,40 +132,87 @@ CARTModel <- train(Bushfire_Flag ~ State + FWI_99th_flag + SOI_Condition + IOD_P
                trControl = fitcontrol, tuneLength = 10)
 
 #### Bagging
+tuning_grid <- expand.grid(
+  maxdepth = c(1, 3, 5, 8, 15),
+  minsplit = c(2, 5, 10, 15),
+  ROC = NA,
+  Sens = NA,
+  Spec = NA
+)
+
+set.seed(761)
+
+for(i in seq_len(nrow(tuning_grid))) {
+  
+  # Fit model for each hyperparameter combination
+  fit <- train(Bushfire_Flag ~ State + FWI_99th_flag + SOI_Condition + IOD_Phase + Artificial_surfaces + Cultivated_terrestrial_vegetated + Natural_terrestrial_vegetated + Water, data = data_train, method = "treebag", metric = "ROC",
+               trControl = fitcontrol,
+               maxdepth = tuning_grid$maxdepth[i],
+               minsplit = tuning_grid$minsplit[i])
+  
+  
+  # Save fit metrics from each model...
+  tuning_grid$ROC[i] <- fit$results$ROC
+  tuning_grid$Sens[i] <- fit$results$Sens
+  tuning_grid$Spec[i] <- fit$results$Spec
+}
+
+# Assess top 10 models
+tuning_grid %>%
+  arrange(-ROC) %>%
+  head(10)
+
+best_ROC <- tuning_grid[tuning_grid$ROC == max(tuning_grid$ROC), ]
+
+# Re-run model with best hyperparameters
 BagModel <- train(Bushfire_Flag ~ State + FWI_99th_flag + SOI_Condition + IOD_Phase + Artificial_surfaces + Cultivated_terrestrial_vegetated + Natural_terrestrial_vegetated + Water, data = data_train, method = "treebag", metric = "ROC",
-             trControl = fitcontrol)
+             trControl = fitcontrol,
+             maxdepth = best_ROC$maxdepth,
+             minsplit = best_ROC$minsplit)
 
 #### Random Forest
 RandomForestModel <- train(Bushfire_Flag ~ State + FWI_99th_flag + SOI_Condition + IOD_Phase + Artificial_surfaces + Cultivated_terrestrial_vegetated + Natural_terrestrial_vegetated + Water, data = data_train, method = "rf", metric = "ROC",
-            trControl = fitcontrol, tuneLength = 10)
-plot(RandomForestModel)
+                           trControl = fitcontrol, tuneGrid = expand.grid(mtry = seq(1,15,1)))
 
 stopCluster(cl) # ending parallel computing - important, otherwise R can get funky.
 
-# print results
+### Compare number of trees and error rates
+plot(CARTModel)
+#plot(BagModel) # no tuning parameters
+plot(RandomForestModel)
+
+### print results
 print(CARTModel)
 print(BagModel)
 print(RandomForestModel)
 
 ### Model predictions
 #Note the threshold probability for the classification is 50% by default.
-prediction_CARTModel <- predict(CARTModel, newdata = x_test, type = "prob") 
-prediction_BagModel <- predict(BagModel, newdata = x_test, type = "prob")
-prediction_RandomForestModel <- predict(RandomForestModel, newdata = x_test, type = "prob")
+prob_CARTModel <- predict(CARTModel, newdata = x_test, type = "prob") 
+prob_BagModel <- predict(BagModel, newdata = x_test, type = "prob")
+prob_RandomForestModel <- predict(RandomForestModel, newdata = x_test, type = "prob")
 
 ### Confusion Matrix
-#CARTModel_conf <- confusionMatrix(prediction_CARTModel,  y_test, positive="Yes")
-# BagModel_conf <- confusionMatrix(prediction_BagModel,  y_test, positive="Yes")
-# RandomForestModel_conf <- confusionMatrix(prediction_RandomForestModel,  y_test, positive="Yes")
+prediction_CARTModel <- predict(CARTModel, newdata = x_test, type = "raw") 
+prediction_BagModel <- predict(BagModel, newdata = x_test, type = "raw")
+prediction_RandomForestModel <- predict(RandomForestModel, newdata = x_test, type = "raw")
+
+CARTModel_conf <- confusionMatrix(prediction_CARTModel,  y_test, positive="Yes")
+BagModel_conf <- confusionMatrix(prediction_BagModel,  y_test, positive="Yes")
+RandomForestModel_conf <- confusionMatrix(prediction_RandomForestModel,  y_test, positive="Yes")
+
+CARTModel_conf$table
+BagModel_conf$table
+RandomForestModel_conf$table
 
 ### Test error: ROC
-ROC_CARTModel <- roc.curve(scores.class0 = prediction_CARTModel$Yes, 
+ROC_CARTModel <- roc.curve(scores.class0 = prob_CARTModel$Yes, 
                        weights.class0 = as.numeric(data_test$Bushfire_Flag)-1, curve = T)
 
-ROC_BagModel <- roc.curve(scores.class0 = prediction_BagModel$Yes, 
+ROC_BagModel <- roc.curve(scores.class0 = prob_BagModel$Yes, 
                           weights.class0 = as.numeric(data_test$Bushfire_Flag)-1, curve = T)
 
-ROC_RandomForestModel <- roc.curve(scores.class0 = prediction_RandomForestModel$Yes, 
+ROC_RandomForestModel <- roc.curve(scores.class0 = prob_RandomForestModel$Yes, 
                           weights.class0 = as.numeric(data_test$Bushfire_Flag)-1, curve = T)
 
 plot(ROC_CARTModel,color = "brown", main="ROC curves", auc.main = F, lwd=2)
