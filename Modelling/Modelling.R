@@ -15,7 +15,7 @@ data <- data %>%
   mutate(El_Nino = (SOI > 7)) %>% 
   mutate(La_Nina = (SOI < -7)) %>% 
   mutate(Positive_IOD = (IOD > 0.4)) %>% 
-  mutate(Negative_IOD = (IOD < 0.4)) %>% 
+  mutate(Negative_IOD = (IOD < -0.4)) %>% 
   select(-c("FWI_median", "FWI_max", "FWI_99th", "IOD", "SOI"))
 
 data$Date <- ymd(data$Date)
@@ -31,13 +31,13 @@ data$Negative_IOD <- as.factor(data$Negative_IOD)
 set.seed(6)
 index <- sample(1:nrow(data), 0.7*nrow(data))
 
-x_train <- data[index, -9]
+x_train <- data[index, -9][,-1]
 y_train <- data[index, 9]
-data_train <- data[index,]
+data_train <- data[index,][,-1]
 
-x_test <- data[-index, -9]
+x_test <- data[-index, -9][,-1]
 y_test <- data[-index, 9]
-data_test <- data[-index,]
+data_test <- data[-index,][,-1]
 
 x_train_matrix <- model.matrix(~., x_train)
 y_train_matrix <- as.matrix(y_train)
@@ -101,12 +101,7 @@ ROC_EN<-PRROC::roc.curve(scores.class0 = prediction_EN,
 ROC_Logistic<-PRROC::roc.curve(scores.class0 = prediction_Logistic,
                                weights.class0 = as.numeric(data_test$Bushfire_Flag)-1,curve = T)
 
-plot(ROC_lasso,color = "brown", main="ROC curves", auc.main = F, lwd=2)
-plot(ROC_ridge,color ="blue",add=T, lwd=2)
-plot(ROC_EN,color ="red",add=T, lwd=2)
-plot(ROC_Logistic,color ="yellow",add=T, lwd=2)
-legend("bottomright", legend = c("Lasoo", "Ridge","EN", "Simple logistic"),
-       lwd = 3, col = c("brown", "blue","red", "yellow"))
+
 
 # ROC
 ROC_lasso$auc #Lasso
@@ -125,12 +120,155 @@ ROC_Logistic$auc #simple logistic
 # ConfuMatrix_EN<- confusionMatrix(as.factor(PredClass_EN), data_test$Bushfire_Flag, positive="1")
 # ConfuMatrix_Logistic<- confusionMatrix(as.factor(PredClass_Logistic), data_test$Bushfire_Flag, positive="1")
 
+
+# predict(CV_lasso, s=CV_lasso$lambda.min, newx=x_test_matrix, type="response")
+
+
 # 2. Tree-based Models
 
-# Define control parameters for train
-fitcontrol <- trainControl(method = "cv", 
-                           number = 5,
-                           savePredictions = TRUE,
-                           classProbs = TRUE, 
-                           summaryFunction = twoClassSummary,
-                           allowParallel = TRUE)
+# Look for best mtry
+# bestmtry <- tuneRF(x_train, y_train, ntreeTry = 500,
+#                   mtryStart  = 5,stepFactor = 1.2, improve = 0.01, trace=T)
+
+bestmtry <- 6
+#14 using old data, 8 using new data
+
+# Create RF model
+RF <- randomForest(Bushfire_Flag~.,data= data_train, mtry=bestmtry)
+RF #summary
+importance(RF) # shows how much each factor contributes to GINI index (error) decrease
+
+# Prediction
+prediction_RF <- predict(RF, newdata = x_test, type="prob")
+prediction_RF <- as.data.frame(prediction_RF) #convert to df
+# colnames(pred_test)[1] = "prediction" #rename column
+
+# Re-order soft delete (no need to reorder since both datasets are in the same jumbled up order)
+#pred_test$index <- as.numeric(row.names(pred_test))
+#df <- as.data.frame(pred_test[order(pred_test$index), ]$prediction)
+#colnames(df)[1] = "prediction"
+
+# ROC
+ROC_RF<-PRROC::roc.curve(scores.class0 = prediction_RF$`TRUE`,
+                               weights.class0 = as.numeric(data_test$Bushfire_Flag)-1,curve = T)
+ROC_RF$auc # summary and AUC
+
+
+plot(ROC_lasso,color = "brown", main="ROC curves", auc.main = F, lwd=2)
+plot(ROC_ridge,color ="blue",add=T, lwd=2)
+plot(ROC_EN,color ="red",add=T, lwd=2)
+plot(ROC_Logistic,color ="yellow",add=T, lwd=2)
+plot(ROC_RF,add=T,color ="black", lwd=2)
+legend("bottomright", legend = c("Lasoo", "Ridge","EN", "Simple logistic", "Random forest"),
+       lwd = 3, col = c("brown", "blue","red", "yellow", "black"))
+
+#
+data_3yr <- data %>% 
+  filter(Date > as.Date("2020-06-30")) %>% 
+  group_by(State) %>% 
+  summarise(FWI_mean = mean(FWI_mean),
+            # FWI_max = mean(FWI_max),
+            FWI_99th_flag = mean(as.numeric(FWI_99th_flag)),
+            El_Nino = mean(as.numeric(El_Nino)),
+            La_Nina = mean(as.numeric(La_Nina)),
+            Positive_IOD = mean(as.numeric(Positive_IOD)),
+            Negative_IOD = mean(as.numeric(Negative_IOD)),
+            Artificial_surfaces = mean(Artificial_surfaces),
+            Cultivated_terrestrial_vegetated = mean(Cultivated_terrestrial_vegetated),
+            Natural_terrestrial_vegetated = mean(Natural_terrestrial_vegetated),
+            Water = mean(Water)) %>% 
+  mutate(State = as.factor(State),
+         El_Nino = as.factor(El_Nino>0.5),
+         La_Nina = as.factor(La_Nina>0.5),
+         Positive_IOD = as.factor(Positive_IOD>0.5),
+         Negative_IOD = as.factor(Negative_IOD>0.5),
+         FWI_99th_flag = as.factor(FWI_99th_flag>0.5))
+
+
+
+data_5yr <- data %>% 
+  filter(Date > as.Date("2018-06-30")) %>% 
+  group_by(State) %>% 
+  summarise(FWI_mean = mean(FWI_mean),
+            # FWI_max = mean(FWI_max),
+            FWI_99th_flag = mean(as.numeric(FWI_99th_flag)),
+            El_Nino = mean(as.numeric(El_Nino)),
+            La_Nina = mean(as.numeric(La_Nina)),
+            Positive_IOD = mean(as.numeric(Positive_IOD)),
+            Negative_IOD = mean(as.numeric(Negative_IOD)),
+            Artificial_surfaces = mean(Artificial_surfaces),
+            Cultivated_terrestrial_vegetated = mean(Cultivated_terrestrial_vegetated),
+            Natural_terrestrial_vegetated = mean(Natural_terrestrial_vegetated),
+            Water = mean(Water)) %>% 
+  mutate(El_Nino = as.factor(El_Nino>0.5),
+         La_Nina = as.factor(La_Nina>0.5),
+         Positive_IOD = as.factor(Positive_IOD>0.5),
+         Negative_IOD = as.factor(Negative_IOD>0.5),
+         FWI_99th_flag = as.factor(FWI_99th_flag>0.5))
+
+
+data_10yr <- data %>% 
+  filter(Date > as.Date("2013-06-30")) %>% 
+  group_by(State) %>% 
+  summarise(FWI_mean = mean(FWI_mean),
+            # FWI_max = mean(FWI_max),
+            FWI_99th_flag = mean(as.numeric(FWI_99th_flag)),
+            El_Nino = mean(as.numeric(El_Nino)),
+            La_Nina = mean(as.numeric(La_Nina)),
+            Positive_IOD = mean(as.numeric(Positive_IOD)),
+            Negative_IOD = mean(as.numeric(Negative_IOD)),
+            Artificial_surfaces = mean(Artificial_surfaces),
+            Cultivated_terrestrial_vegetated = mean(Cultivated_terrestrial_vegetated),
+            Natural_terrestrial_vegetated = mean(Natural_terrestrial_vegetated),
+            Water = mean(Water)) %>% 
+  mutate(El_Nino = as.factor(El_Nino>0.5),
+         La_Nina = as.factor(La_Nina>0.5),
+         Positive_IOD = as.factor(Positive_IOD>0.5),
+         Negative_IOD = as.factor(Negative_IOD>0.5),
+         FWI_99th_flag = as.factor(FWI_99th_flag>0.5))
+
+
+
+data_full <- data %>% 
+  group_by(State) %>% 
+  summarise(FWI_mean = mean(FWI_mean),
+            # FWI_max = mean(FWI_max),
+            FWI_99th_flag = mean(as.numeric(FWI_99th_flag)),
+            El_Nino = mean(as.numeric(El_Nino)),
+            La_Nina = mean(as.numeric(La_Nina)),
+            Positive_IOD = mean(as.numeric(Positive_IOD)),
+            Negative_IOD = mean(as.numeric(Negative_IOD)),
+            Artificial_surfaces = mean(Artificial_surfaces),
+            Cultivated_terrestrial_vegetated = mean(Cultivated_terrestrial_vegetated),
+            Natural_terrestrial_vegetated = mean(Natural_terrestrial_vegetated),
+            Water = mean(Water)) %>% 
+  mutate(El_Nino = as.factor(El_Nino>0.5),
+         La_Nina = as.factor(La_Nina>0.5),
+         Positive_IOD = as.factor(Positive_IOD>0.5),
+         Negative_IOD = as.factor(Negative_IOD>0.5),
+         FWI_99th_flag = as.factor(FWI_99th_flag>0.5))
+
+data_3yr <- rbind(x_train[1,], data_3yr)[-1,]
+data_5yr <- rbind(x_train[1,], data_5yr)[-1,]
+data_10yr <- rbind(x_train[1,], data_10yr)[-1,]
+data_full <- rbind(x_train[1,], data_full)[-1,]
+
+pred_3yr <- predict(RF, newdata = data_3yr, type= "prob")
+pred_3yr <- as.data.frame(pred_3yr) #convert to df
+
+pred_5yr <- predict(RF, newdata = data_5yr, type= "prob")
+pred_5yr <- as.data.frame(pred_5yr) #convert to df
+
+pred_10yr <- predict(RF, newdata = data_10yr, type= "prob")
+pred_10yr <- as.data.frame(pred_10yr) #convert to df
+
+pred_full <- predict(RF, newdata = data_full, type= "prob")
+pred_full <- as.data.frame(pred_full) #convert to df
+
+prediction_summary <- data.frame(States = data_full$State,
+                                 Pred_3yr = pred_3yr$`TRUE`,
+                                 Pred_5yr = pred_5yr$`TRUE`,
+                                 Pred_10yr = pred_10yr$`TRUE`,
+                                 Pred_full = pred_full$`TRUE`)
+
+
