@@ -1,5 +1,5 @@
 ## Set working directory
-# setwd("C:/Users/Callista Surjadi/Downloads")
+# setwd("")
 
 ## Initialise packages
 # install.packages("pacman")
