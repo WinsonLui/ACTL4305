@@ -131,7 +131,8 @@ date_state <- crossing(Date, State)
 ICA_Bushfire <- date_state %>% 
   left_join(ICA_Bushfire, by=join_by("Date">="CAT_Event_Start", "Date"<="CAT_Event_Finish", "State" == "State")) %>% 
   select(-c("CAT_Name", "CAT_Event_Start", "CAT_Event_Finish")) %>%
-  mutate(Bushfire_Flag = case_when(is.na(Bushfire_Flag)~ FALSE, TRUE ~ TRUE))
+  mutate(Bushfire_Flag = case_when(is.na(Bushfire_Flag)~ FALSE, TRUE ~ TRUE)) %>%
+  distinct()
 
 ### E.Convert land cover into % of land area covered by a. Artificial_surfaces, b. Cultivated_terrestrial_vegetated, c. Natural_terrestrial_vegetated and d. Water.
 Land_cover_reformatted <- Land_cover %>% 
