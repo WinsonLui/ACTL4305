@@ -205,9 +205,8 @@ df <- FWI_state %>%
     year(Date)>2020 ~ "2020",
     TRUE ~ as.character(year(Date)))) %>% 
   left_join(Land_cover_state, join_by(State==State, Year == Year)) %>% 
-  select(-Year)
-  left_join(ICA_Bushfire, join_by(state==State,date==Date)) %>%
-  select(-c("State.Code"))
+  select(-Year) %>%
+  left_join(ICA_Bushfire, join_by(State==State,Date==Date))
 
 ## Export dataset
 write.csv(df,file="df.csv",row.names = F)
