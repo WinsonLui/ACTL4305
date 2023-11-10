@@ -205,4 +205,4 @@ df <- FWI_state %>%
          "Date" = "date")
 
 ## Export dataset
-write.csv(df,file="C:/Users/Callista Surjadi/Documents/Academics/4305 Sandbox/df.csv",row.names = F)
+write.csv(df,file="df.csv",row.names = F)
