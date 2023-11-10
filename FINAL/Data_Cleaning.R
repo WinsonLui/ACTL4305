@@ -105,7 +105,8 @@ ICA_Bushfire <- ICA_CAT_Hist %>%
   separate_rows(State, sep=",") %>%
   separate_rows(State, sep=" ") %>%
   filter(State != "") %>%
-  mutate(Bushfire_Flag = T)
+  mutate(Bushfire_Flag = T) %>%
+  distinct()
 
 #### Update state value to be compatible with FWI data - will need this to merge datasets
 ICA_Bushfire <- ICA_Bushfire %>%
