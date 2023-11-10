@@ -99,6 +99,8 @@ ICA_Bushfire <- ICA_CAT_Hist %>%
   filter(Type == "Bushfire") %>%
   select(c("CAT_Name","CAT_Event_Start","CAT_Event_Finish","State")) %>% 
   separate_rows(State, sep=",") %>%
+  separate_rows(State, sep=" ") %>%
+  filter(State != "") %>%
   mutate(Bushfire_Flag = T)
 
 #### Update state value to be compatible with FWI data - will need this to merge datasets
@@ -203,4 +205,4 @@ df <- FWI_state %>%
          "Date" = "date")
 
 ## Export dataset
-write.csv(df,file="df.csv",row.names = F)
+write.csv(df,file="C:/Users/Callista Surjadi/Documents/Academics/4305 Sandbox/df.csv",row.names = F)
