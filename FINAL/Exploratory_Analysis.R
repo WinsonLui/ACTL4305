@@ -1,5 +1,5 @@
 ## Set working directory
-# setwd()
+# setwd("C:/Users/Callista Surjadi/Downloads")
 
 ## Initialise packages
 # install.packages("pacman")
@@ -24,7 +24,7 @@ ggplot(data=data)+
   facet_wrap(~State,nrow=3)+
   scale_fill_manual(values=c("#008B92","#FFE781"))+
   theme(panel.background = element_rect(fill="white"))+
-  ggtitle("FWI 90th Percentile Threshold", "High ")
+  ggtitle("FWI 90th Percentile Threshold", "Redundant flag")
 
 ### B.95th percentile
 ggplot(data=data)+
@@ -33,7 +33,7 @@ ggplot(data=data)+
   facet_wrap(~State,nrow=3)+
   scale_fill_manual(values=c("#008B92","#FFE781"))+
   theme(panel.background = element_rect(fill="white"))+
-  ggtitle("FWI 95th Percentile Threshold", "Higher False Positive than True Positive in WA")
+  ggtitle("FWI 95th Percentile Threshold", "Contradictory effect on WA")
 
 ### C.99th percentile
 ggplot(data=data)+
@@ -42,7 +42,7 @@ ggplot(data=data)+
   facet_wrap(~State,nrow=3)+
   scale_fill_manual(values=c("#008B92","#FFE781"))+
   theme(panel.background = element_rect(fill="white"))+
-  ggtitle("FWI 99th Percentile Threshold", "Low bushfire risk capture")
+  ggtitle("FWI 99th Percentile Threshold", "Captures some positive correlation")
 
 # use 90th percentile as threshold since there is preference for higher false positive than false negative
 data <- data %>% 
@@ -86,4 +86,4 @@ ggplot(data=data)+
   ggtitle("IOD Phase")
 
 ## Export updated dataset
-write.csv(data,file="df_updated.csv",row.names = F)
+write.csv(data,file="C:/Users/Callista Surjadi/Documents/Academics/4305 Sandbox/df_updated.csv",row.names = F)
