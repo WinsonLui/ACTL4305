@@ -19,7 +19,7 @@ ICA_CAT_Hist <- read_excel("ICA-Historical-Normalised-Catastrophe-August-2023.xl
 
 ### B.External data
 # ABS National Land Cover Account: https://www.abs.gov.au/statistics/environment/environmental-management/national-land-cover-account/latest-release#data-downloads
-Land_cover <- read.csv("46162DO011_2020.csv", skip=4, header=TRUE)
+Land_cover <- read_excel("46162DO010_2020.xlsx", range="Table 10.2!A6:AJ102")
 
 ## Convert date formats
 FWI$date <- ymd(FWI$date)
@@ -34,8 +34,7 @@ FWI <- FWI %>%
   filter(!is.na(state))
 
 Land_cover <- Land_cover %>% 
-  filter((State.Code != 0)&(State.Name != "")&(State.Name != "Australian Capital Territory")) %>% 
-  filter(Item == "Opening stock") 
+  filter((`State Name` != "Australian Capital Territory") & (`Land Cover Classification` != "No data"))
 
 ### B.Apply flag for 90th and 99th percentile
 #### Define function filter_and_quantile
@@ -53,6 +52,9 @@ states <- unique(FWI$state)
 FWI_90th <- as.numeric(lapply(states,filter_and_quantile, percentile = 0.9))
 FWI_states_90 <- data.frame(State = states, FWI_90th = FWI_90th)
 
+FWI_95th <- as.numeric(lapply(states,filter_and_quantile, percentile = 0.95))
+FWI_states_95 <- data.frame(State = states, FWI_95th = FWI_95th)
+
 FWI_99th <- as.numeric(sapply(states,filter_and_quantile))
 FWI_states_99 <- data.frame(State = states, FWI_99th = FWI_99th)
 
@@ -61,8 +63,10 @@ FWI_state <- FWI %>%
   group_by(date, state) %>% 
   summarise(FWI_max = max(fwi)) %>% 
   left_join(FWI_states_90, by=join_by("state"=="State")) %>% 
+  left_join(FWI_states_95, by=join_by("state"=="State")) %>% 
   left_join(FWI_states_99, by=join_by("state"=="State")) %>% 
   mutate(FWI_90th_flag = FWI_max >= FWI_90th) %>%
+  mutate(FWI_95th_flag = FWI_max >= FWI_95th) %>%
   mutate(FWI_99th_flag = FWI_max >= FWI_99th)
 
 ### C.Interpolate daily SOI and IOD
@@ -129,80 +133,81 @@ ICA_Bushfire <- date_state %>%
   mutate(Bushfire_Flag = case_when(is.na(Bushfire_Flag)~ FALSE, TRUE ~ TRUE))
 
 ### E.Convert land cover into % of land area covered by a. Artificial_surfaces, b. Cultivated_terrestrial_vegetated, c. Natural_terrestrial_vegetated and d. Water.
-Land_cover_state <- Land_cover %>% 
-  select(c("State.Code"
-           ,"State.Name"
-           ,"Open.Year"
-           ,"Artificial.surfaces"
-           ,"Cultivated.terrestrial.vegetated..herbaceous"
-           ,"Natural.terrestrial.vegetated..herbaceous"
-           ,"Natural.terrestrial.vegetated..woody"
-           ,"Natural.surfaces"
-           ,"Natural.aquatic.vegetated..herbaceous"
-           ,"Natural.aquatic.vegetated..woody"
-           ,"Water..perennial"
-           ,"Water..non.perennial"
-           ,"Tidal.area"
+Land_cover_reformatted <- Land_cover %>% 
+  pivot_longer(
+    cols = !c("State Code", "State Name", "Land Cover Classification"),
+    names_to = "Year",
+    values_to = "Area"
+  ) %>% 
+  pivot_wider(names_from = `Land Cover Classification`,
+              values_from = Area)
+
+Land_cover_state <- Land_cover_reformatted %>% 
+  select(c("State Name"
+           ,"Year"
+           ,"Artificial surfaces"
+           ,"Cultivated terrestrial vegetated: herbaceous"
+           ,"Natural terrestrial vegetated: herbaceous"
+           ,"Natural terrestrial vegetated: woody"
+           ,"Natural surfaces"
+           ,"Natural aquatic vegetated: herbaceous"
+           ,"Natural aquatic vegetated: woody"
+           ,"Water: perennial"
+           ,"Water: non-perennial"
+           ,"Tidal area"
            ,"Total")) %>% 
-  mutate_at(c("Artificial.surfaces"
-              ,"Cultivated.terrestrial.vegetated..herbaceous"
-              ,"Natural.terrestrial.vegetated..herbaceous"
-              ,"Natural.terrestrial.vegetated..woody"
-              ,"Natural.surfaces"
-              ,"Natural.aquatic.vegetated..herbaceous"
-              ,"Natural.aquatic.vegetated..woody"
-              ,"Water..perennial"
-              ,"Water..non.perennial"
-              ,"Tidal.area"
+  mutate_at(c("Artificial surfaces"
+              ,"Cultivated terrestrial vegetated: herbaceous"
+              ,"Natural terrestrial vegetated: herbaceous"
+              ,"Natural terrestrial vegetated: woody"
+              ,"Natural surfaces"
+              ,"Natural aquatic vegetated: herbaceous"
+              ,"Natural aquatic vegetated: woody"
+              ,"Water: perennial"
+              ,"Water: non-perennial"
+              ,"Tidal area"
               ,"Total"), ~replace_na(as.numeric(.),0)) %>% 
-  group_by(State.Code, State.Name) %>% 
-  summarise(across(c("Artificial.surfaces"
-                     ,"Cultivated.terrestrial.vegetated..herbaceous"
-                     ,"Natural.terrestrial.vegetated..herbaceous"
-                     ,"Natural.terrestrial.vegetated..woody"
-                     ,"Natural.surfaces"
-                     ,"Natural.aquatic.vegetated..herbaceous"
-                     ,"Natural.aquatic.vegetated..woody"
-                     ,"Water..perennial"
-                     ,"Water..non.perennial"
-                     ,"Tidal.area"
-                     ,"Total"), sum)) %>% 
-  mutate(across(c("Artificial.surfaces"
-                  ,"Cultivated.terrestrial.vegetated..herbaceous"
-                  ,"Natural.terrestrial.vegetated..herbaceous"
-                  ,"Natural.terrestrial.vegetated..woody"
-                  ,"Natural.surfaces"
-                  ,"Natural.aquatic.vegetated..herbaceous"
-                  ,"Natural.aquatic.vegetated..woody"
-                  ,"Water..perennial"
-                  ,"Water..non.perennial"
-                  ,"Tidal.area"), ~./Total)) %>% 
+  mutate(across(c("Artificial surfaces"
+                  ,"Cultivated terrestrial vegetated: herbaceous"
+                  ,"Natural terrestrial vegetated: herbaceous"
+                  ,"Natural terrestrial vegetated: woody"
+                  ,"Natural surfaces"
+                  ,"Natural aquatic vegetated: herbaceous"
+                  ,"Natural aquatic vegetated: woody"
+                  ,"Water: perennial"
+                  ,"Water: non-perennial"
+                  ,"Tidal area"), ~./Total, .names="{col}")) %>% 
   select(-Total) %>% 
-  mutate(Artificial_surfaces = Artificial.surfaces) %>% 
-  mutate(Cultivated_terrestrial_vegetated = Cultivated.terrestrial.vegetated..herbaceous) %>% 
-  mutate(Natural_terrestrial_vegetated = Natural.terrestrial.vegetated..herbaceous + Natural.terrestrial.vegetated..woody + Natural.surfaces) %>% 
-  mutate(Water = Natural.aquatic.vegetated..herbaceous + Natural.aquatic.vegetated..woody + Water..perennial + Water..non.perennial + Tidal.area) %>% 
-  select(-c("State.Code",
-            "Artificial.surfaces", 
-            "Cultivated.terrestrial.vegetated..herbaceous", 
-            "Natural.terrestrial.vegetated..herbaceous",
-            "Natural.terrestrial.vegetated..woody",
-            "Natural.surfaces",
-            "Natural.aquatic.vegetated..herbaceous",
-            "Natural.aquatic.vegetated..woody",
-            "Water..perennial",
-            "Water..non.perennial",
-            "Tidal.area"))
+  mutate(Artificial_surfaces = `Artificial surfaces`) %>% 
+  mutate(Cultivated_terrestrial_vegetated = `Cultivated terrestrial vegetated: herbaceous`) %>% 
+  mutate(Natural_terrestrial_vegetated = `Natural terrestrial vegetated: herbaceous` + `Natural terrestrial vegetated: woody` + `Natural surfaces`) %>% 
+  mutate(Water = `Natural aquatic vegetated: herbaceous` + `Natural aquatic vegetated: woody` + `Water: perennial` + `Water: non-perennial` + `Tidal area`) %>% 
+  select(-c("Artificial surfaces"
+            ,"Cultivated terrestrial vegetated: herbaceous"
+            ,"Natural terrestrial vegetated: herbaceous"
+            ,"Natural terrestrial vegetated: woody"
+            ,"Natural surfaces"
+            ,"Natural aquatic vegetated: herbaceous"
+            ,"Natural aquatic vegetated: woody"
+            ,"Water: perennial"
+            ,"Water: non-perennial"
+            ,"Tidal area")) %>% 
+  rename(State = `State Name`)
 
 ## Merge datasets
 df <- FWI_state %>% 
-  left_join(IOD_2, join_by(date==Date)) %>% 
-  left_join(SOI_2, join_by(date==Date)) %>% 
-  left_join(Land_cover_state, join_by(state==State.Name)) %>%
-  left_join(ICA_Bushfire, join_by(state==State,date==Date)) %>%
-  select(-c("State.Code")) %>%
   rename("State" = "state",
-         "Date" = "date")
+         "Date" = "date") %>%
+  left_join(IOD_2, join_by(Date==Date)) %>% 
+  left_join(SOI_2, join_by(Date==Date)) %>% 
+  mutate(Year = case_when(
+    year(Date)<1988 ~ "1988",
+    year(Date)>2020 ~ "2020",
+    TRUE ~ as.character(year(Date)))) %>% 
+  left_join(Land_cover_state, join_by(State==State, Year == Year)) %>% 
+  select(-Year)
+  left_join(ICA_Bushfire, join_by(state==State,date==Date)) %>%
+  select(-c("State.Code"))
 
 ## Export dataset
 write.csv(df,file="df.csv",row.names = F)
