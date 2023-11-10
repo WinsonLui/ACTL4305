@@ -1,5 +1,5 @@
 ## Set working directory
-# setwd("C:/Users/Callista Surjadi/Downloads")
+# setwd()
 
 ## Initialise packages
 # install.packages("pacman")
@@ -44,9 +44,9 @@ ggplot(data=data)+
   theme(panel.background = element_rect(fill="white"))+
   ggtitle("FWI 99th Percentile Threshold", "Captures some positive correlation")
 
-# use 90th percentile as threshold since there is preference for higher false positive than false negative
+# use 99th percentile as threshold since it best captures relation between flag and bushfire event
 data <- data %>% 
-  select(-c("FWI_90th","FWI_95th","FWI_99th","FWI_max","FWI_95th_flag","FWI_99th_flag"))
+  select(-c("FWI_90th","FWI_95th","FWI_99th","FWI_max","FWI_90th_flag","FWI_95th_flag"))
 
 ## Add flags for SOI and IOD
 data <- data %>% 
@@ -86,4 +86,4 @@ ggplot(data=data)+
   ggtitle("IOD Phase")
 
 ## Export updated dataset
-write.csv(data,file="C:/Users/Callista Surjadi/Documents/Academics/4305 Sandbox/df_updated.csv",row.names = F)
+write.csv(data,file="df_updated.csv",row.names = F)
