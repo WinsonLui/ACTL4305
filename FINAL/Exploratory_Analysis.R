@@ -12,6 +12,7 @@ data <- read.csv("df.csv")
 data$Date <- ymd(data$Date)
 data$State <- as.factor(data$State)
 data$FWI_90th_flag <- as.factor(data$FWI_90th_flag)
+data$FWI_95th_flag <- as.factor(data$FWI_95th_flag)
 data$FWI_99th_flag <- as.factor(data$FWI_99th_flag)
 data$Bushfire_Flag <- as.factor(data$Bushfire_Flag)
 
@@ -23,20 +24,29 @@ ggplot(data=data)+
   facet_wrap(~State,nrow=3)+
   scale_fill_manual(values=c("#008B92","#FFE781"))+
   theme(panel.background = element_rect(fill="white"))+
-  ggtitle("FWI 90th Percentile Threshold", "Higher False Positive")
+  ggtitle("FWI 90th Percentile Threshold", "High ")
 
-### B.99th percentile
+### B.95th percentile
+ggplot(data=data)+
+  geom_bar(mapping=aes(x=Bushfire_Flag,fill=FWI_95th_flag),
+           position="fill")+
+  facet_wrap(~State,nrow=3)+
+  scale_fill_manual(values=c("#008B92","#FFE781"))+
+  theme(panel.background = element_rect(fill="white"))+
+  ggtitle("FWI 95th Percentile Threshold", "Higher False Positive than True Positive in WA")
+
+### C.99th percentile
 ggplot(data=data)+
   geom_bar(mapping=aes(x=Bushfire_Flag,fill=FWI_99th_flag),
            position="fill")+
   facet_wrap(~State,nrow=3)+
   scale_fill_manual(values=c("#008B92","#FFE781"))+
   theme(panel.background = element_rect(fill="white"))+
-  ggtitle("FWI 99th Percentile Threshold", "Higher False Negative")
+  ggtitle("FWI 99th Percentile Threshold", "Low bushfire risk capture")
 
 # use 90th percentile as threshold since there is preference for higher false positive than false negative
 data <- data %>% 
-  select(-c("FWI_90th","FWI_99th","FWI_max","FWI_99th_flag"))
+  select(-c("FWI_90th","FWI_95th","FWI_99th","FWI_max","FWI_95th_flag","FWI_99th_flag"))
 
 ## Add flags for SOI and IOD
 data <- data %>% 
@@ -75,3 +85,5 @@ ggplot(data=data)+
   scale_fill_manual(values=c("#F9F9F9","#008B92","#FFE781"))+
   ggtitle("IOD Phase")
 
+## Export updated dataset
+write.csv(data,file="df_updated.csv",row.names = F)
