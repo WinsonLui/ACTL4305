@@ -19,6 +19,7 @@ ICA_CAT_Hist <- read_excel("ICA-Historical-Normalised-Catastrophe-August-2023.xl
 
 ### B.External data
 # ABS National Land Cover Account: https://www.abs.gov.au/statistics/environment/environmental-management/national-land-cover-account/latest-release#data-downloads
+# Time series of land cover stock positions, 1988 to 2020 (xlsx file)
 Land_cover <- read_excel("46162DO010_2020.xlsx", range="Table 10.2!A6:AJ102")
 
 ## Convert date formats
@@ -46,7 +47,7 @@ filter_and_quantile <- function(state_name, percentile=0.99, data=FWI){
   return(percentile_value)
 }
 
-#### Find 90th and 99th percentile of fwi for each state
+#### Find 90th, 95th and 99th percentile of fwi for each state
 states <- unique(FWI$state)
 
 FWI_90th <- as.numeric(lapply(states,filter_and_quantile, percentile = 0.9))
