@@ -84,6 +84,3 @@ ggplot(data=data)+
   theme(panel.background = element_rect(fill="white"))+
   scale_fill_manual(values=c("#F9F9F9","#008B92","#FFE781"))+
   ggtitle("IOD Phase")
-
-## Export updated dataset
-write.csv(data,file="df_updated.csv",row.names = F)
